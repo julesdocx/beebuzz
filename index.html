@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luca's Bandwidth Bee Buzz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            background-color: #f9f9f9;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: #555;
+        }
+
+        p {
+            font-size: 1rem;
+            line-height: 1.5;
+            max-width: 600px;
+            color: #333;
+            margin-bottom: 2rem;
+        }
+
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            background-color: #118f00;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        canvas {
+            border-radius: 16px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            h2 {
+                font-size: 1.25rem;
+            }
+
+            p {
+                font-size: 0.9rem;
+            }
+
+            button {
+                font-size: 0.9rem;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Luca's Bandwidth Bee Buzz</h1>
+    <h2>An artistic coding process directed by Adèle Sweetlove and design by Jules Docx</h2>
+    <p>
+        The bee's communication methods exist not only in nature, but also through computer technology.  
+        We took the Wi-Fi bandwidth usage of a 5-day week at LUCA School Of Arts and translated it  
+        to the buzzing of a bee.
+    </p>
+    <div style="display: flex; justify-content: center; align-items: center; position: relative;">
+        <!-- Left Wing -->
+        <div id="leftWing"  style="width: 80px; height: 120px; background-color: rgba(173, 216, 230, 0.5); border-radius: 50%; position: absolute; transform: rotate(-30deg); left: -60px;"></div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; margin-top: 20px;">
+        <div style="width: 75px; height: 20px; background-color: black; border-radius: 25px;"></div>
+        <div style="width: 75px; height: 20px; background-color: rgb(244, 244, 1); border-radius: 25px;"></div>
+        <div style="width: 75px; height: 20px; background-color: black; border-radius: 25px;"></div>
+        <div style="width: 75px; height: 20px; background-color: rgb(244, 244, 1); border-radius: 25px;"></div>
+        <div style="width: 75px; height: 20px; background-color: black; border-radius: 25px;"></div>
+        <div style="width: 75px; height: 20px; background-color: rgb(244, 244, 1); border-radius: 25px;"></div>
+        </div>      
+        <!-- Right Wing -->
+        <div  id="rightWing" style="width: 80px; height: 120px; background-color: rgba(173, 216, 230, 0.5); border-radius: 50%; position: absolute; transform: rotate(30deg); right: -60px;"></div>
+    </div>
+
+    <canvas style="margin-top: 20px;" id="frequencyCanvas" width="400" height="300"></canvas>
+    <button id="playButton" disabled>Play Sound</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let frequencyData = []; // Holds data from the "Hz" column
+
+        const canvas = document.getElementById('frequencyCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let playbackIndex = 0; // Tracks the current playback position
+        let animationFrameId; // Stores the requestAnimationFrame ID
+
+        // Automatically load the local file
+        async function loadExcelFile() {
+            try {
+                // Fetch the local Excel file
+                const response = await fetch('./data.xlsx'); // Adjust path if needed
+                const arrayBuffer = await response.arrayBuffer();
+
+                // Parse the file with SheetJS
+                const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert the sheet to JSON
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                // Extract column headers and data
+                const headers = jsonData[0]; // First row contains column names
+                const columnIndex = headers.indexOf("Hz"); // Find the "Hz" column
+                if (columnIndex === -1) {
+                    alert("No 'Hz' column found in the Excel file!");
+                    return;
+                }
+
+                // Extract "Hz" column values (skip the header row)
+                frequencyData = jsonData.slice(1).map(row => row[columnIndex]).filter(value => value !== undefined && !isNaN(value));
+
+                // Enable the Play button
+                document.getElementById('playButton').disabled = false;
+
+                // Draw the data on the canvas
+                drawGraph(frequencyData);
+
+                console.log(`Data loaded successfully! ${frequencyData.length} frequencies extracted.`);
+            } catch (error) {
+                console.error("Error loading the Excel file:", error);
+            }
+        }
+        // Function to draw the graph on canvas
+        function drawGraph(data) {
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Define graph dimensions and scaling
+            const padding = 40;
+            const graphWidth = canvas.width - padding * 2;
+            const graphHeight = canvas.height - padding * 2;
+
+            // Normalize data to fit in the canvas
+            const maxValue = Math.max(...data);
+            const minValue = Math.min(...data);
+            const normalizedData = data.map(value => (value - minValue) / (maxValue - minValue));
+
+            // Draw axes
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.strokeStyle = "#000";
+            ctx.stroke();
+
+            // Plot data
+            ctx.beginPath();
+            normalizedData.forEach((value, index) => {
+                const x = padding + (index / (data.length - 1)) * graphWidth;
+                const y = canvas.height - padding - value * graphHeight;
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.strokeStyle = "#007BFF";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Function to play sound and animate the line
+        function playSawtoothSound(data) {
+            const durationPerValue = 0.2; // Duration per frequency in seconds
+            let currentTime = audioContext.currentTime;
+
+            playbackIndex = 0; // Reset playback position
+
+            // Animate the line during playback
+            function animateLine() {
+                // Clear previous line
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawGraph(data); // Redraw the graph
+
+                // Draw moving line
+                const padding = 40;
+                const graphWidth = canvas.width - padding * 2;
+                const x = padding + (playbackIndex / (data.length - 1)) * graphWidth;
+
+                ctx.beginPath();
+                ctx.moveTo(x, padding);
+                ctx.lineTo(x, canvas.height - padding);
+                ctx.strokeStyle = "red";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Request the next frame
+                if (playbackIndex < data.length) {
+                    animationFrameId = requestAnimationFrame(animateLine);
+                }
+            }
+
+            // Start the animation
+            animateLine();
+
+            // Play the frequencies
+            data.forEach((frequency, index) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                    
+                const durationPerValue = 0.2; // Duration per frequency in seconds
+
+                // Set waveform and frequency
+                oscillator.type = "sawtooth";
+                oscillator.frequency.value = frequency;
+
+                // Set amplitude
+                gainNode.gain.value = 0.5;
+
+                // Connect nodes
+                oscillator.connect(gainNode).connect(audioContext.destination);
+
+                // Schedule start and stop
+                oscillator.start(currentTime);
+                oscillator.stop(currentTime + durationPerValue);
+
+                // Update playback index based on timing
+                setTimeout(() => {
+                    playbackIndex = index + 1;
+                }, index * durationPerValue * 1000);
+
+                currentTime += durationPerValue;
+                    // Trigger wing animation with each frequency
+            setTimeout(() => {
+                    animateWings(frequency); // Synchronize wings with frequency
+                }, index * durationPerValue * 1000);
+            });
+
+            // Stop animation after playback ends
+            setTimeout(() => cancelAnimationFrame(animationFrameId), data.length * durationPerValue * 1000);
+        }
+
+
+                // Select the wing elements
+        const leftWing = document.getElementById('leftWing');
+        const rightWing = document.getElementById('rightWing');
+
+       leftWing.style.width = "80px";
+    leftWing.style.height = "120px";
+    leftWing.style.backgroundColor = "rgba(173, 216, 230, 0.5)";
+    leftWing.style.borderRadius = "50%";
+    leftWing.style.position = "absolute";
+    leftWing.style.transformOrigin = "center bottom"; // Updated rotation axis
+
+    rightWing.style.width = "80px";
+    rightWing.style.height = "120px";
+    rightWing.style.backgroundColor = "rgba(173, 216, 230, 0.5)";
+    rightWing.style.borderRadius = "50%";
+    rightWing.style.position = "absolute";
+
+    rightWing.style.transformOrigin = "center bottom"; // Updated rotation axis
+        function animateWings(dataValue) {
+            const minFrequency = 1; // Low data value
+            const maxFrequency = 10; // High data value
+            const frequency = Math.max(minFrequency, Math.min(maxFrequency, dataValue / 50));
+            const duration = 1 / frequency; // Seconds
+
+            // Reset and apply animation with new duration
+            leftWing.style.animation = `none`; // Reset animation
+            rightWing.style.animation = `none`; // Reset animation
+
+            setTimeout(() => {
+                leftWing.style.animation = `left-wing-flap ${duration}s linear infinite`;
+                rightWing.style.animation = `right-wing-flap ${duration}s linear infinite`;
+            }, 10); // Small timeout to reapply animation
+        }
+
+        // Add keyframes for wing flap
+        const styleSheet = document.createElement('style');
+            styleSheet.innerHTML = `
+            @keyframes left-wing-flap {
+                0% { transform: rotate(0deg); }
+                50% { transform: rotate(-45deg); } /* Counter-clockwise */
+                100% { transform: rotate(0deg); }
+            }
+
+            @keyframes right-wing-flap {
+                0% { transform: rotate(0deg); }
+                50% { transform: rotate(45deg); } /* Clockwise */
+                100% { transform: rotate(0deg); }
+            }`;
+        document.head.appendChild(styleSheet);
+
+        // Simulate dynamic data input
+        let index = 0;
+        const dataValues = [10, 30, 50, 70, 90, 120]; // Example data values
+        setInterval(() => {
+            animateWings(dataValues[index]);
+            index = (index + 1) % dataValues.length; // Loop through data values
+        }, 1000); // Update every second
+
+        document.getElementById('playButton').addEventListener('click', () => {
+            playSawtoothSound(frequencyData);
+
+            // Start wings animation when the button is clicked
+            leftWing.style.animation = `left-wing-flap 1s linear infinite`;
+            rightWing.style.animation = `right-wing-flap 1s linear infinite`;
+            
+        });
+
+        // Load the Excel file on page load
+        loadExcelFile();
+    </script>
+</body>
+</html>
